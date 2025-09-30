@@ -17,6 +17,9 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 async def on_startup(app: web.Application):
+    # 1. Создаём таблицы
+    await init_db()
+     # 2. Говорим Telegram: "Присылай обновления сюда"
     await bot.set_webhook(WEBHOOK_URL)
 
 async def on_shutdown(app: web.Application):
