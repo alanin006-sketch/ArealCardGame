@@ -10,7 +10,7 @@ from bot.handlers import start, game
 # Получаем порт от Render
 PORT = int(os.environ.get("PORT", 10000))
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
-WEBHOOK_URL = f"https://your-render-service.onrender.com{WEBHOOK_PATH}"
+WEBHOOK_URL = f"https://arealcardgame.onrender.com{WEBHOOK_PATH}"
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
