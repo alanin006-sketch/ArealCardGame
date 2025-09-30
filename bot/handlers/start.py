@@ -8,12 +8,22 @@ router = Router()
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
+    user_id = message.from_user.id
+    username = message.from_user.username
+
     async with async_session() as session:
-        user = await session.get(User, message.from_user.id)
-        if not user:
+        # Проверяем, существует ли пользователь
+        result = await session.execute(
+            select(User).where(User.telegram_id == user_id)
+        )
+        existing_user = result.scalar_one_or_none()
+
+        if not existing_user:
+            # Создаём нового
             new_user = User(
-                telegram_id=message.from_user.id,
-                username=message.from_user.username
+                telegram_id=user_id,
+                username=username,
+                rating=1000
             )
             session.add(new_user)
             await session.commit()
