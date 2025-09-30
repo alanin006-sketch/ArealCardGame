@@ -32,6 +32,18 @@ def main():
 
     app.on_startup.append(on_startup)
     app.on_cleanup.append(on_shutdown)
+    
+    # Эндпоинт для ручной проверки
+    async def health_check(request):
+        return web.json_response({"status": "ok", "webhook_url": WEBHOOK_URL})
+
+    # Эндпоинт для установки webhook через GET-запрос (удобно для отладки)
+    async def set_webhook(request):
+        await bot.set_webhook(WEBHOOK_URL)
+        return web.json_response({"status": "webhook set", "url": WEBHOOK_URL})
+
+    app.router.add_get("/", health_check)
+    app.router.add_get("/setwebhook", set_webhook)
 
     web.run_app(app, host="0.0.0.0", port=PORT)
 
