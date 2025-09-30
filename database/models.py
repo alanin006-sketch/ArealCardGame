@@ -21,6 +21,7 @@ class Deck(Base):
 
 class Match(Base):
     __tablename__ = "matches"
+    is_ai_match = Column(Boolean, default=False)
     id = Column(Integer, primary_key=True)
     player1_id = Column(Integer, ForeignKey("users.id"))
     player2_id = Column(Integer, ForeignKey("users.id"), nullable=True)
