@@ -5,6 +5,9 @@ from config.settings import BOT_TOKEN
 from database.db import init_db
 from bot.handlers import start, game
 
+# Глобальный экземпляр бота для использования в других модулях (например, matchmaker)
+bot = Bot(token=BOT_TOKEN)
+
 async def main():
     logging.basicConfig(level=logging.INFO)
     await init_db()
