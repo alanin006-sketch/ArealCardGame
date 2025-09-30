@@ -1,5 +1,6 @@
 from aiogram import Router, types
 from aiogram.filters import Command
+from sqlalchemy import select
 from database.models import User
 from database.db import async_session
 from bot.keyboards.inline import main_menu_kb
