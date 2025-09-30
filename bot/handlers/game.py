@@ -52,6 +52,7 @@ async def find_match(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(lambda c: c.data == "confirm_play")
 async def confirm_play(callback: CallbackQuery):
+    print(">>> КНОПКА 'confirm_play' НАЖАТА!")
     await callback.answer()
     # Просто повторно вызываем поиск — Matchmaker сам решит, дать бота или нет
     await find_match(callback, FSMContext())
