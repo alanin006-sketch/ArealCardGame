@@ -13,7 +13,7 @@ from bot.keyboards.inline import (
 from main import bot
 
 router = Router()
-
+    
 # Пример заглушка колоды
 DUMMY_DECK = [
     {"id": 1, "name": "Сталкер-одиночка", "attack": 4, "health": 10},
@@ -22,6 +22,13 @@ DUMMY_DECK = [
     {"id": 4, "name": "Компас Зоны", "attack": 2, "health": 8},
     {"id": 5, "name": "Скала", "attack": 8, "health": 20},
 ]
+
+# Глобальная переменная для matchmaker
+matchmaker = None
+
+def set_matchmaker(m):
+    global matchmaker
+    matchmaker = m
 
 @router.callback_query(lambda c: c.data == "find_match")
 async def find_match(callback: CallbackQuery):
