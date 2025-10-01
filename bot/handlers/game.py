@@ -10,7 +10,6 @@ from bot.keyboards.inline import confirm_play_kb, pass_or_play_kb
 from main import bot
 
 router = Router()
-matchmaker = Matchmaker()
 
 # Заглушка: простая "колода" для MVP
 DUMMY_DECK = [
@@ -23,6 +22,7 @@ DUMMY_DECK = [
 
 @router.callback_query(lambda c: c.data == "find_match")
 async def find_match(callback: CallbackQuery):
+    matchmaker = router["matchmaker"]  # ← получаем из роутера
     await callback.answer()
     user_id = callback.from_user.id
 
@@ -50,6 +50,7 @@ async def find_match(callback: CallbackQuery):
 
 @router.callback_query(lambda c: c.data == "confirm_play")
 async def confirm_play(callback: CallbackQuery):
+    matchmaker = router["matchmaker"]  # ← получаем из роутера
     print(">>> КНОПКА 'confirm_play' НАЖАТА!")
     await callback.answer()
 
