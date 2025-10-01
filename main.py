@@ -6,6 +6,7 @@ from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_applicati
 from aiohttp import web
 from config.settings import BOT_TOKEN
 from database.db import init_db
+from game.matchmaker import Matchmaker
 
 # Получаем порт от Render
 PORT = int(os.environ.get("PORT", 10000))
