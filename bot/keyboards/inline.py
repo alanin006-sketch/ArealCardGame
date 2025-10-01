@@ -17,10 +17,6 @@ def battle_board_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Выбрать карту", callback_data="choose_card")]
     ])
-def battle_board_kb():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Выбрать карту", callback_data="choose_card")]
-    ])
 
 def select_card_kb(board: list):
     keyboard = []
