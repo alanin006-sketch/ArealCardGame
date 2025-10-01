@@ -1,41 +1,31 @@
-# bot/handlers/game.py
 from aiogram import Router, types
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
-from database.models import User, Match
+from database.models import User, Match, Card
 from database.db import async_session
+from game.engine import BattleEngine
 from game.ai_player import SimpleAI
-from bot.keyboards.inline import confirm_play_kb, pass_or_play_kb
-
-# Убираем matchmaker = Matchmaker() — создаём его в main.py
+from bot.keyboards.inline import (
+    battle_board_kb,
+    select_card_kb,
+    select_target_kb
+)
+from main import bot
 
 router = Router()
 
-# matchmaker будет установлен позже — через set_matchmaker
-matchmaker = None
-
-def set_matchmaker(m):
-    global matchmaker
-    matchmaker = m
-
+# Пример заглушка колоды
 DUMMY_DECK = [
-    {"id": 1, "name": "Сталкер-одиночка", "power": 4},
-    {"id": 2, "name": "Артефакт 'Пустышка'", "power": 0},
-    {"id": 3, "name": "Военный патруль", "power": 6},
-    {"id": 4, "name": "Компас Зоны", "power": 2},
-    {"id": 5, "name": "Скала", "power": 8},
+    {"id": 1, "name": "Сталкер-одиночка", "attack": 4, "health": 10},
+    {"id": 2, "name": "Артефакт 'Пустышка'", "attack": 0, "health": 5},
+    {"id": 3, "name": "Военный патруль", "attack": 6, "health": 12},
+    {"id": 4, "name": "Компас Зоны", "attack": 2, "health": 8},
+    {"id": 5, "name": "Скала", "attack": 8, "health": 20},
 ]
 
 @router.callback_query(lambda c: c.data == "find_match")
 async def find_match(callback: CallbackQuery):
-    print("DEBUG: find_match handler called")
-    global matchmaker
-    if matchmaker is None:
-        await callback.answer("❌ matchmaker не установлен!")
-        return
     user_id = callback.from_user.id
-
-    # Проверим, нет ли уже активного матча
     async with async_session() as session:
         active_match = await session.execute(
             select(Match).where(
@@ -47,128 +37,135 @@ async def find_match(callback: CallbackQuery):
             await callback.message.edit_text("У вас уже есть активный матч!")
             return
 
-    match_id = await matchmaker.add_player(user_id)
-    if match_id:
-        await callback.message.edit_text("Матч найден! (PvP — в разработке)")
-    else:
-        await callback.message.edit_text(
-            "Ищем соперника...\n"
-            "Если не найдём — в бой вступит БОТ-сталкер через 10 секунд.",
-            reply_markup=confirm_play_kb()
-        )
+    # Создаём матч против AI
+    new_match = Match(
+        player1_id=user_id,
+        player2_id=-1,
+        status="active",
+        is_ai_match=True,
+        hand_p1=DUMMY_DECK.copy(),
+        hand_p2=DUMMY_DECK.copy(),
+        board_p1=[],
+        board_p2=[],
+        current_player_id=user_id,
+        moves_left_p1=3,
+        moves_left_p2=3,
+    )
+    session.add(new_match)
+    await session.commit()
 
-@router.callback_query(lambda c: c.data == "confirm_play")
-async def confirm_play(callback: CallbackQuery):
-    global matchmaker
-    print(">>> КНОПКА 'confirm_play' НАЖАТА!")
-    await callback.answer()
+    await callback.message.edit_text(
+        "Бой начинается!\n"
+        f"Ваши карты:\n{BattleEngine.format_board(new_match.hand_p1)}\n"
+        f"Карты противника:\n{BattleEngine.format_board(new_match.hand_p2)}",
+        reply_markup=battle_board_kb()
+    )
 
+@router.callback_query(lambda c: c.data.startswith("select_card_"))
+async def select_card(callback: CallbackQuery):
     user_id = callback.from_user.id
-
-    # Проверим, нет ли уже активного матча
-    async with async_session() as session:
-        active_match = await session.execute(
-            select(Match).where(
-                ((Match.player1_id == user_id) | (Match.player2_id == user_id)),
-                Match.status == "active"
-            )
-        )
-        if active_match.scalar_one_or_none():
-            await callback.message.edit_text("У вас уже есть активный матч!")
-            return
-
-    # Запускаем поиск (matchmaker сам решит, дать бота или нет)
-    match_id = await matchmaker.add_player(user_id)
-    if match_id:
-        await callback.message.edit_text("Матч найден! (PvP — в разработке)")
-    else:
-        await callback.message.edit_text(
-            "✅ Подтверждено! Ожидайте соперника или БОТа...",
-            reply_markup=None  # убираем кнопки
-        )
-
-# =============== ОБРАБОТКА ИГРЫ ПРОТИВ БОТА ===============
-
-@router.message(lambda message: message.text and message.text.startswith("/play_"))
-async def handle_card_play(message: Message):
-    global matchmaker
-    user_id = message.from_user.id
-    try:
-        card_index = int(message.text.split("_")[1])
-    except (IndexError, ValueError):
-        await message.answer("Неверная команда. Используйте /play_0, /play_1 и т.д.")
-        return
+    card_idx = int(callback.data.split("_")[2])
 
     async with async_session() as session:
         result = await session.execute(
             select(Match).where(
-                Match.player1_id == user_id,
-                Match.is_ai_match == True,
+                ((Match.player1_id == user_id) | (Match.player2_id == user_id)),
                 Match.status == "active"
             )
         )
         match = result.scalar_one_or_none()
         if not match:
-            await message.answer("У вас нет активного матча с ботом.")
+            await callback.answer("Нет активного матча.")
             return
 
-        if card_index < 0 or card_index >= len(match.hand_p1):
-            await message.answer("Нет карты с таким номером.")
+        if match.current_player_id != user_id:
+            await callback.answer("Не ваш ход.")
             return
 
-        played_card = match.hand_p1.pop(card_index)
-        match.board_p1.append(played_card)
+        moves_left = match.moves_left_p1 if user_id == match.player1_id else match.moves_left_p2
+        if moves_left <= 0:
+            await callback.answer("У вас закончились ходы в этом раунде.")
+            return
 
-        ai = SimpleAI(difficulty="normal")
-        ai_card_idx = ai.choose_card(hand=match.hand_p2, opponent_board=match.board_p1)
-        if ai_card_idx is not None and ai_card_idx < len(match.hand_p2):
-            ai_card = match.hand_p2.pop(ai_card_idx)
-            match.board_p2.append(ai_card)
-            ai_card_name = ai_card["name"]
-        else:
-            ai_card_name = "ничего (рука пуста)"
+        # Выбираем карту
+        board = match.board_p1 if user_id == match.player1_id else match.board_p2
+        if card_idx >= len(board):
+            await callback.answer("Неверный индекс карты.")
+            return
 
-        player_power = sum(c.get("power", 0) for c in match.board_p1)
-        ai_power = sum(c.get("power", 0) for c in match.board_p2)
-
-        match.status = "finished"
-        result_text = "Победа!" if player_power > ai_power else "Поражение." if ai_power > player_power else "Ничья."
-
-        await session.commit()
-
-        await message.answer(
-            f"Вы разыграли: {played_card['name']} ({played_card['power']} силы)\n"
-            f"БОТ разыграл: {ai_card_name}\n\n"
-            f"Ваша сила: {player_power}\n"
-            f"Сила БОТА: {ai_power}\n\n"
-            f"Результат: {result_text}"
+        # Предлагаем выбрать цель
+        target_board = match.board_p2 if user_id == match.player1_id else match.board_p1
+        await callback.message.edit_text(
+            f"Вы выбрали: {board[card_idx]['name']}\nВыберите цель для атаки:",
+            reply_markup=select_target_kb(target_board, card_idx)
         )
 
-@router.callback_query(lambda c: c.data == "start_ai_match")
-async def start_ai_match_direct(callback: CallbackQuery):
-    global matchmaker
-    await callback.answer()
+@router.callback_query(lambda c: c.data.startswith("attack_"))
+async def handle_attack(callback: CallbackQuery):
     user_id = callback.from_user.id
+    attacker_idx = int(callback.data.split("_")[1])
+    target_idx = int(callback.data.split("_")[2])
 
     async with async_session() as session:
-        new_match = Match(
-            player1_id=user_id,
-            player2_id=-1,
-            status="active",
-            is_ai_match=True,
-            hand_p1=DUMMY_DECK.copy(),
-            hand_p2=DUMMY_DECK.copy(),
-            board_p1=[],
-            board_p2=[],
-            scores={"p1": 0, "p2": 0}
+        result = await session.execute(
+            select(Match).where(
+                ((Match.player1_id == user_id) | (Match.player2_id == user_id)),
+                Match.status == "active"
+            )
         )
-        session.add(new_match)
+        match = result.scalar_one_or_none()
+        if not match:
+            await callback.answer("Нет активного матча.")
+            return
+
+        if match.current_player_id != user_id:
+            await callback.answer("Не ваш ход.")
+            return
+
+        # Определяем доски
+        attacker_board = match.board_p1 if user_id == match.player1_id else match.board_p2
+        target_board = match.board_p2 if user_id == match.player1_id else match.board_p1
+
+        if attacker_idx >= len(attacker_board) or target_idx >= len(target_board):
+            await callback.answer("Неверный индекс.")
+            return
+
+        # Атака
+        attacker_card = attacker_board[attacker_idx]
+        target_card = target_board[target_idx]
+
+        BattleEngine.attack_card(attacker_card, target_card)
+
+        # Обновляем ходы
+        if user_id == match.player1_id:
+            match.moves_left_p1 -= 1
+        else:
+            match.moves_left_p2 -= 1
+
         await session.commit()
 
-    cards_text = "\n".join(f"{i}. {card['name']} ({card['power']})" for i, card in enumerate(DUMMY_DECK))
-    await callback.message.edit_text(
-        "⚔️ Тренировка с БОТом начата!\n"
-        "Выберите карту, отправив команду:\n"
-        "/play_0, /play_1, /play_2 и т.д.\n\n"
-        f"Ваша рука:\n{cards_text}"
-    )
+        if target_card.get("status") == "destroyed":
+            await callback.message.edit_text(f"Карта {target_card['name']} уничтожена!")
+        else:
+            await callback.message.edit_text(
+                f"{attacker_card['name']} атаковал {target_card['name']}!\n"
+                f"Здоровье цели: {target_card['health']}"
+            )
+
+        # Проверяем конец раунда
+        if match.moves_left_p1 == 0 and match.moves_left_p2 == 0:
+            if BattleEngine.check_win_condition(match.board_p2):
+                await callback.message.edit_text("Вы победили!")
+                match.status = "finished"
+            elif BattleEngine.check_win_condition(match.board_p1):
+                await callback.message.edit_text("Вы проиграли.")
+                match.status = "finished"
+            else:
+                # Следующий раунд
+                match.current_round += 1
+                match.moves_left_p1 = 3
+                match.moves_left_p2 = 3
+                await callback.message.edit_text(
+                    f"Раунд {match.current_round} начинается!",
+                    reply_markup=battle_board_kb()
+                )
