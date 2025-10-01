@@ -4,14 +4,20 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 from database.models import User, Match
 from database.db import async_session
-from game.matchmaker import Matchmaker
 from game.ai_player import SimpleAI
 from bot.keyboards.inline import confirm_play_kb, pass_or_play_kb
-from main import bot
+
+# Убираем matchmaker = Matchmaker() — создаём его в main.py
 
 router = Router()
 
-# Заглушка: простая "колода" для MVP
+# matchmaker будет установлен позже — через set_matchmaker
+matchmaker = None
+
+def set_matchmaker(m):
+    global matchmaker
+    matchmaker = m
+
 DUMMY_DECK = [
     {"id": 1, "name": "Сталкер-одиночка", "power": 4},
     {"id": 2, "name": "Артефакт 'Пустышка'", "power": 0},
@@ -22,8 +28,7 @@ DUMMY_DECK = [
 
 @router.callback_query(lambda c: c.data == "find_match")
 async def find_match(callback: CallbackQuery):
-    matchmaker = router["matchmaker"]  # ← получаем из роутера
-    await callback.answer()
+    global matchmaker
     user_id = callback.from_user.id
 
     # Проверим, нет ли уже активного матча
@@ -50,12 +55,10 @@ async def find_match(callback: CallbackQuery):
 
 @router.callback_query(lambda c: c.data == "confirm_play")
 async def confirm_play(callback: CallbackQuery):
-    matchmaker = router["matchmaker"]  # ← получаем из роутера
+    global matchmaker
     print(">>> КНОПКА 'confirm_play' НАЖАТА!")
     await callback.answer()
 
-    # Просто запускаем логику поиска — без FSMContext!
-    # Мы НЕ передаём state, потому что он не нужен
     user_id = callback.from_user.id
 
     # Проверим, нет ли уже активного матча
@@ -75,7 +78,6 @@ async def confirm_play(callback: CallbackQuery):
     if match_id:
         await callback.message.edit_text("Матч найден! (PvP — в разработке)")
     else:
-        # В реальности matchmaker уже запустил таймер → ничего не делаем
         await callback.message.edit_text(
             "✅ Подтверждено! Ожидайте соперника или БОТа...",
             reply_markup=None  # убираем кнопки
@@ -85,6 +87,7 @@ async def confirm_play(callback: CallbackQuery):
 
 @router.message(lambda message: message.text and message.text.startswith("/play_"))
 async def handle_card_play(message: Message):
+    global matchmaker
     user_id = message.from_user.id
     try:
         card_index = int(message.text.split("_")[1])
@@ -139,6 +142,7 @@ async def handle_card_play(message: Message):
 
 @router.callback_query(lambda c: c.data == "start_ai_match")
 async def start_ai_match_direct(callback: CallbackQuery):
+    global matchmaker
     await callback.answer()
     user_id = callback.from_user.id
 
