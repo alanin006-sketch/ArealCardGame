@@ -28,7 +28,11 @@ DUMMY_DECK = [
 
 @router.callback_query(lambda c: c.data == "find_match")
 async def find_match(callback: CallbackQuery):
+    print("DEBUG: find_match handler called")
     global matchmaker
+    if matchmaker is None:
+        await callback.answer("❌ matchmaker не установлен!")
+        return
     user_id = callback.from_user.id
 
     # Проверим, нет ли уже активного матча
