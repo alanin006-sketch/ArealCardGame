@@ -20,6 +20,7 @@ class User(Base):
     username = Column(String, nullable=True)
     rating = Column(Integer, default=1000)
     current_deck_id = Column(Integer, nullable=True)
+    field_cards = Column(JSON, default=[])  # ← добавим поле для "случайных" карт на поле
 
 class Deck(Base):
     __tablename__ = "decks"
