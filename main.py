@@ -5,7 +5,6 @@ from aiogram import Bot, Dispatcher
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web
 from config.settings import BOT_TOKEN
-from bot.handlers import start, game
 from database.db import init_db
 
 # Получаем порт от Render
@@ -14,7 +13,8 @@ RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://arealcardga
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = f"{RENDER_EXTERNAL_URL}{WEBHOOK_PATH}"
 
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=BOT_TOKEN)# ← создаём ДО импорта обработчиков
+from bot.handlers import start, game # ← только после создания bot
 dp = Dispatcher()
 
 async def on_startup(app: web.Application):
