@@ -52,7 +52,7 @@ async def find_match(callback: CallbackQuery):
         is_ai_match=True,
         hand_p1=DUMMY_DECK.copy(),
         hand_p2=DUMMY_DECK.copy(),
-        board_p1=[],
+        board_p1=[],  # пусто — выложим позже
         board_p2=[],
         current_player_id=user_id,
         moves_left_p1=3,
@@ -61,11 +61,19 @@ async def find_match(callback: CallbackQuery):
     session.add(new_match)
     await session.commit()
 
+    # Выкладываем все карты на поле
+    new_match.board_p1 = new_match.hand_p1.copy()
+    new_match.board_p2 = new_match.hand_p2.copy()
+    new_match.hand_p1.clear()
+    new_match.hand_p2.clear()
+
+    await session.commit()
+
     await callback.message.edit_text(
         "Бой начинается!\n"
-        f"Ваши карты:\n{BattleEngine.format_board(new_match.hand_p1)}\n"
-        f"Карты противника:\n{BattleEngine.format_board(new_match.hand_p2)}",
-        reply_markup=battle_board_kb()
+        f"Ваши карты на поле:\n{BattleEngine.format_board(new_match.board_p1)}\n"
+        f"Карты противника:\n{BattleEngine.format_board(new_match.board_p2)}",
+        reply_markup=battle_board_kb(has_cards_on_board=True)
     )
 
 @router.callback_query(lambda c: c.data.startswith("select_card_"))
