@@ -132,6 +132,36 @@ async def select_card(callback: CallbackQuery):
             reply_markup=select_target_kb(target_board, card_idx)
         )
 
+@router.callback_query(lambda c: c.data == "choose_attack")#показывает список своих карт.
+async def choose_attack(callback: CallbackQuery):
+    user_id = callback.from_user.id
+
+    async with async_session() as session:
+        result = await session.execute(
+            select(Match).where(
+                ((Match.player1_id == user_id) | (Match.player2_id == user_id)),
+                Match.status == "active"
+            )
+        )
+        match = result.scalar_one_or_none()
+        if not match:
+            await callback.answer("Нет активного матча.")
+            return
+
+        if match.current_player_id != user_id:
+            await callback.answer("Не ваш ход.")
+            return
+
+        board = match.board_p1 if user_id == match.player1_id else match.board_p2
+        if not board:
+            await callback.answer("У вас нет карт на поле.")
+            return
+
+        await callback.message.edit_text(
+            "Выберите карту для атаки:",
+            reply_markup=select_card_kb(board)
+        )
+        
 @router.callback_query(lambda c: c.data.startswith("attack_"))
 async def handle_attack(callback: CallbackQuery):
     user_id = callback.from_user.id
