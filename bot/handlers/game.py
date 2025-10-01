@@ -185,6 +185,7 @@ async def handle_attack(callback: CallbackQuery):
             )
 
         # Проверяем конец раунда
+        # В обработчике handle_attack, в конце:
         if match.moves_left_p1 == 0 and match.moves_left_p2 == 0:
             if BattleEngine.check_win_condition(match.board_p2):
                 await callback.message.edit_text("Вы победили!")
@@ -193,11 +194,11 @@ async def handle_attack(callback: CallbackQuery):
                 await callback.message.edit_text("Вы проиграли.")
                 match.status = "finished"
             else:
-                # Следующий раунд
-                match.current_round += 1
-                match.moves_left_p1 = 3
-                match.moves_left_p2 = 3
+                # Новый раунд
+                start_new_round(match)
+                await session.commit()  # Не забудь сохранить изменения в БД
                 await callback.message.edit_text(
-                    f"Раунд {match.current_round} начинается!",
-                    reply_markup=battle_board_kb()
+                    f" Раунд {match.current_round} начинается!\n"
+                    f"На поле появились новые карты:\n{BattleEngine.format_board(match.field_cards)}",
+                    reply_markup=battle_board_kb(has_cards_on_board=True)
                 )
