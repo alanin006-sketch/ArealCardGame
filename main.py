@@ -27,6 +27,13 @@ async def on_shutdown(app: web.Application):
     await bot.delete_webhook(drop_pending_updates=True)
 
 def main():
+    # Создаём Matchmaker с ботом
+    matchmaker = Matchmaker(bot)
+
+    # Передаём его в роутеры через "workflow_data"-подобный механизм
+    start.router["bot"] = bot
+    game.router["matchmaker"] = matchmaker
+    
     dp.include_router(start.router)
     dp.include_router(game.router)
 
