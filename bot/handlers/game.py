@@ -14,13 +14,16 @@ from main import bot
 
 router = Router()
     
-# Пример заглушка колоды
+# Пример DUMMY_DECK — замени на реальную колоду из базы, если будет
 DUMMY_DECK = [
-    {"id": 1, "name": "Сталкер-одиночка", "attack": 4, "health": 10},
-    {"id": 2, "name": "Артефакт 'Пустышка'", "attack": 0, "health": 5},
-    {"id": 3, "name": "Военный патруль", "attack": 6, "health": 12},
-    {"id": 4, "name": "Компас Зоны", "attack": 2, "health": 8},
-    {"id": 5, "name": "Скала", "attack": 8, "health": 20},
+    {"id": 1, "name": "Сталкер-одиночка", "attack": 4, "health": 10, "rank": "common"},
+    {"id": 2, "name": "Артефакт 'Пустышка'", "attack": 0, "health": 5, "rank": "common"},
+    {"id": 3, "name": "Военный патруль", "attack": 6, "health": 12, "rank": "common"},
+    {"id": 4, "name": "Компас Зоны", "attack": 2, "health": 8, "rank": "common"},
+    {"id": 5, "name": "Скала", "attack": 8, "health": 20, "rank": "common"},
+    {"id": 6, "name": "Элитный Сталкер", "attack": 6, "health": 14, "rank": "elite", "crit_chance": 30, "crit_multiplier": 2.0},
+    {"id": 7, "name": "Зональный Ловец", "attack": 5, "health": 10, "rank": "rare"},
+    {"id": 8, "name": "Пси-Оператор", "attack": 3, "health": 7, "rank": "rare"},
 ]
 
 # Глобальная переменная для matchmaker
@@ -29,7 +32,21 @@ matchmaker = None
 def set_matchmaker(m):
     global matchmaker
     matchmaker = m
+    
+def start_new_round(match: Match):
+    # 1. Выбираем 4 случайные карты из DUMMY_DECK
+    match.field_cards = random.sample(DUMMY_DECK, 4)
 
+    # 2. Сбрасываем количество ходов
+    match.moves_left_p1 = 3
+    match.moves_left_p2 = 3
+
+    # 3. Определяем, кто ходит первым (например, чередуем или всегда player1)
+    match.current_player_id = match.player1_id  # или match.player2_id, если хочешь менять
+
+    # 4. (Опционально) можно обновить раунд
+    match.current_round += 1
+    
 @router.callback_query(lambda c: c.data == "find_match")
 async def find_match(callback: CallbackQuery):
     user_id = callback.from_user.id
