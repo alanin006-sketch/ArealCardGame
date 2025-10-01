@@ -14,8 +14,6 @@ PORT = int(os.environ.get("PORT", 10000))
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://arealcardgame.onrender.com").strip()
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = f"{RENDER_EXTERNAL_URL}{WEBHOOK_PATH}"
-print("DEBUG: WEBHOOK_URL")
-print(WEBHOOK_URL)
 
 bot = Bot(token=BOT_TOKEN)
 from bot.handlers import start, game
